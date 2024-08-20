@@ -12,6 +12,7 @@ import (
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
+	"github.com/pocketbase/pocketbase/tools/template"
 	"go.uber.org/fx"
 
 	"gohome.4gophers.ru/kovardin/partnership/app/handlers"
@@ -26,6 +27,7 @@ func main() {
 		// tasks.Module,
 
 		fx.Provide(pocketbase.New),
+		fx.Provide(template.NewRegistry),
 		fx.Provide(settings.New),
 		fx.Invoke(
 			migration,
