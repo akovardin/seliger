@@ -1,0 +1,11 @@
+POST http://127.0.0.1:8082/v1/namespaces/example/create
+Content-Type: application/json
+
+{
+    "dump_url": "http://example.local:8080"
+}
+
+
+###
+
+POST http://127.0.0.1:8082/v1/namespaces/default/fork/example

@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"github.com/labstack/echo/v5"
 	"github.com/pocketbase/pocketbase"
+	"github.com/pocketbase/pocketbase/core"
 )
 
 type Ads struct {
@@ -15,11 +15,7 @@ func NewAds(app *pocketbase.PocketBase) *Ads {
 	}
 }
 
-type AdsResponse struct {
-	Ads []Ad `json:"ads"`
-}
-
-type Ad struct {
+type AdResponse struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Img         string `json:"img"`
@@ -27,8 +23,20 @@ type Ad struct {
 	Info        string `json:"info"`
 }
 
-func (a *Ads) List(c echo.Context) error {
-	banners, err := a.app.Dao().FindRecordsByFilter(
+func (a *Ads) One(e *core.RequestEvent) error {
+	// реализуем взвешанный рандом по посчитанному CPM
+
+	response := AdResponse{}
+
+	return e.JSON(200, response)
+}
+
+type AdsResponse struct {
+	Ads []AdResponse `json:"ads"`
+}
+
+func (a *Ads) List(e *core.RequestEvent) error {
+	banners, err := a.app.FindRecordsByFilter(
 		"banners",
 		"enabled = true",
 		"-created",
@@ -41,14 +49,14 @@ func (a *Ads) List(c echo.Context) error {
 	}
 
 	response := AdsResponse{
-		Ads: []Ad{},
+		Ads: []AdResponse{},
 	}
 	for _, b := range banners {
 
 		img := b.GetString("image")
-		base := a.app.App.Settings().Meta.AppUrl
+		base := a.app.App.Settings().Meta.AppURL
 
-		response.Ads = append(response.Ads, Ad{
+		response.Ads = append(response.Ads, AdResponse{
 			Name:        b.GetString("name"),
 			Description: b.GetString("description"),
 			Url:         b.GetString("url"),
@@ -57,7 +65,5 @@ func (a *Ads) List(c echo.Context) error {
 		})
 	}
 
-	c.JSON(200, response)
-
-	return nil
+	return e.JSON(200, response)
 }

@@ -16,7 +16,7 @@ func New(app *pocketbase.PocketBase) *Settings {
 }
 
 func (s *Settings) UploadFolder(def string) string {
-	record, err := s.app.Dao().FindFirstRecordByFilter("settings", "key = {:key}", dbx.Params{"key": "artifacts_folder"})
+	record, err := s.app.FindFirstRecordByFilter("settings", "key = {:key}", dbx.Params{"key": "artifacts_folder"})
 	if err != nil {
 		s.app.Logger().Warn("error on search settings", "err", err)
 		return def

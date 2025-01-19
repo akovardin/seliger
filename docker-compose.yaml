@@ -1,0 +1,18 @@
+version: "3"
+services:
+  primary:
+    image: ghcr.io/tursodatabase/libsql-server:latest
+    platform: linux/amd64
+    ports:
+      - 8080:8080
+      - 5001:5001
+      - 8082:8082
+    command: [ 'sqld', '--admin-listen-addr', '0.0.0.0:8082', '--enable-namespaces' , '--disable-default-namespace', '--enable-http-console' ]
+    environment:
+      - SQLD_NODE=primary
+      - SQLD_HTTP_LISTEN_ADDR=0.0.0.0:8080
+      - SQLD_GRPC_LISTEN_ADDR=0.0.0.0:5001
+      # - RUST_LOG=debug
+      - SQLD_HTTP_AUTH=basic:YWRtaW46YWRtaW4=
+    volumes:
+      - ./libsql:/var/lib/sqld

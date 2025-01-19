@@ -2,33 +2,63 @@ package main
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"net/url"
+	"log"
 	"os"
 	"strings"
 
-	"github.com/labstack/echo/v5"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase"
+	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 	"github.com/pocketbase/pocketbase/tools/template"
 	"go.uber.org/fx"
 
+	_ "github.com/tursodatabase/libsql-client-go/libsql"
+
+	"gohome.4gophers.ru/kovardin/seliger/app/config"
 	"gohome.4gophers.ru/kovardin/seliger/app/handlers"
 	"gohome.4gophers.ru/kovardin/seliger/app/settings"
+	_ "gohome.4gophers.ru/kovardin/seliger/migrations"
 	"gohome.4gophers.ru/kovardin/seliger/static"
-	// _ "gohome.4gophers.ru/kovardin/seliger/migrations"
+)
+
+func init() {
+	dbx.BuilderFuncMap["libsql"] = dbx.BuilderFuncMap["sqlite3"]
+}
+
+var (
+	cfg string
 )
 
 func main() {
+	cfg = os.Getenv("CONFIG")
+
 	fx.New(
 		handlers.Module,
 		// tasks.Module,
 
-		fx.Provide(pocketbase.New),
+		fx.Provide(func(conf config.Database) *pocketbase.PocketBase {
+
+			app := pocketbase.NewWithConfig(pocketbase.Config{
+				DBConnect: func(dbPath string) (*dbx.DB, error) {
+					if strings.Contains(dbPath, "data.db") {
+						return dbx.Open("libsql", conf.Url+"?authToken="+conf.Token)
+					}
+
+					return core.DefaultDBConnect(dbPath)
+				},
+			})
+
+			return app
+		}),
 		fx.Provide(template.NewRegistry),
 		fx.Provide(settings.New),
+		fx.Provide(
+			func() (config.Config, error) {
+				return config.New(cfg)
+			},
+		),
 		fx.Invoke(
 			migration,
 		),
@@ -45,36 +75,26 @@ func routing(
 	home *handlers.Home,
 	ads *handlers.Ads,
 ) {
-	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
+	app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 		e.Router.GET("/", home.Home)
 
 		// listing
 		e.Router.GET("/ads/:publisher", ads.List)
 
 		// static
-		e.Router.GET("/static/*", func(c echo.Context) error {
-			p := c.PathParam("*")
+		e.Router.GET("/static/{path...}", apis.Static(static.FS, false))
 
-			path, err := url.PathUnescape(p)
-			if err != nil {
-				return fmt.Errorf("failed to unescape path variable: %w", err)
-			}
-
-			err = c.FileFS(path, static.FS)
-			if err != nil && errors.Is(err, echo.ErrNotFound) {
-				return c.FileFS("index.html", static.FS)
-			}
-
-			return err
-		})
-
-		return nil
+		return e.Next()
 
 	})
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			go app.Start()
+			go func() {
+				if err := app.Start(); err != nil {
+					log.Fatal(err)
+				}
+			}()
 
 			return nil
 		},
